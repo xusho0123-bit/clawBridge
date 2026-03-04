@@ -1,0 +1,23 @@
+{
+  "name": "antigravity-bridge",
+  "version": "2.4.0",
+  "description": "Chat with Antigravity IDE's built-in AI via Telegram / 透過 Telegram 與 Antigravity IDE 內建 AI 對話",
+  "type": "module",
+  "main": "bridge.js",
+  "bin": {
+    "antigravity-bridge": "./bridge.js"
+  },
+  "scripts": {
+    "start": "node bridge.js",
+    "setup": "node setup.js"
+  },
+  "keywords": ["antigravity", "telegram", "bridge", "ai", "ide"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "node-telegram-bot-api": "^0.65.0"
+  }
+}
