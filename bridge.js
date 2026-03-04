@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================
-//  Antigravity Bridge v2.4
+//  Antigravity Bridge v2.6
 //  Chat with Antigravity IDE's built-in AI via Telegram
 //  透過 Telegram 與 Antigravity IDE 內建 AI 對話
 //
@@ -32,7 +32,7 @@ const config = {
 };
 
 // Detect Language Server
-console.log('Antigravity Bridge v2.4\n');
+console.log('Antigravity Bridge v2.6\n');
 console.log('Detecting Language Server...');
 
 const connection = await detectConnection();

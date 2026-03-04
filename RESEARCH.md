@@ -184,6 +184,42 @@ payload.media = [{ mimeType: 'image/jpeg', inlineData: base64Data }];
 - 影片（video）和貼圖（sticker）尚未測試
 - Telegram API 對檔案有 20MB 限制
 
+### 10. 「無文字回覆」Bug（v2.5 修復）
+**問題**: Telegram 持續收到「AI completed without text response」，但 IDE 裡 AI 確實有文字回覆。
+**根因**: `GetCascadeTrajectory` API 只回傳 ~100 個 step 的滑動窗口。
+當對話超過 100 步時，`preStepCount >= steps.length`，掃描迴圈 `for (let i = preStepCount; i < steps.length; i++)` 永遠不執行。
+
+**診斷工具**: 寫了 `debug-trajectory.mjs` 來 dump trajectory 結構，確認：
+- API 回傳 100 步（固定上限）
+- `executorMetadatas[].lastStepIdx` 值達 200+（真實 step 總數遠超窗口）
+- `PLANNER_RESPONSE` 有 `.plannerResponse.response` 欄位（文字回覆）和 `.plannerResponse.toolCalls`（工具呼叫）
+
+**解法**: 改為從陣列尾端掃描 + 比對 snapshot 文字：
+```javascript
+// 改前（壞的）:
+getTrajectorySnapshot() → { stepCount: steps.length, executorCount }
+pollResponse() → for (let i = preStepCount; i < steps.length; i++) // 永遠不執行！
+
+// 改後（v2.5）:
+getTrajectorySnapshot() → { executorCount, lastResponseText }
+pollResponse() → 從尾端掃描找最新 PLANNER_RESPONSE，比對 lastResponseText 偵測新回覆
+```
+
+### 11. 三層記憶系統（v2.5 新功能）
+**設計**: 參考 ClaudeBot 四層記憶（Bookmarks/Context Pins/AI Memory/Vault），
+簡化為三層適合 Telegram Bridge 使用：
+
+| 層級 | 用途 | 注入方式 | 儲存 |
+|------|------|---------|------|
+| Pins | 常駐知識 | 每次新 cascade 的 system prompt | data/pins.json |
+| Notes | 知識庫（帶標籤） | 關鍵字匹配，最多 3 條 | data/notes.json |
+| Recall | 歷史搜尋 | /recall 或 RECALL: 才觸發 | data/history.json |
+
+**CJK 中文匹配**: 用 N-gram (2-gram + 3-gram) 解決中文無空格分詞問題。
+例如「小花是什麼」會生成 tokens: `小花`, `花是`, `是什`, `什麼`, `小花是`, `花是什`, `是什麼`。
+
+**AI 自動記憶**: 解析回覆中的 `REMEMBER:` 和 `RECALL:` 標記（同 `MEDIA:` 模式）。
+
 ---
 
 ## 待研究：Tool Call 授權機制
@@ -285,4 +321,137 @@ TG 語音 → 下載 OGG → ffmpeg → WAV → Whisper STT → 文字 → AI
 
 ---
 
-*最後更新: 2026-03-04 by Claude — v2.3 新增 Whisper 語音辨識*
+---
+
+## v2.6 研究：WebSocket 遠端連線
+
+### 技術選型
+**推薦: `ws` npm package**（非 socket.io）
+
+| 比較 | `ws` | `socket.io` |
+|------|------|-------------|
+| Bundle | ~3KB | ~60KB |
+| 協定 | 標準 RFC 6455 | 自訂協定 |
+| 自動重連 | 手動 | 內建 |
+| 開銷 | 最小 | 較高 |
+
+選 `ws` 的理由：
+- Bridge 跑在本地，不需要 socket.io 的 fallback/重連功能
+- 標準 WebSocket 代表任何瀏覽器都能直接連（不需 client library）
+- 效能開銷最小，AI 串流回覆需要低延遲
+
+### 架構設計：Telegram + WebSocket 雙通道
+
+```
+                    +-----------+
+                    |  rpc.js   |  (Cascade API - 不動)
+                    +-----+-----+
+                          |
+                +---------+---------+
+                |   message-bus.js  |  (新: 統一訊息路由)
+                +---------+---------+
+               /          |          \
+      +-------+    +-----+-----+    +-------+
+      | TG Bot |   | WS Server |   | 未來   |
+      +--------+   +-----------+   +--------+
+```
+
+**關鍵**: 從 `telegram.js` 抽取訊息佇列邏輯到 `message-bus.js`。
+兩個 transport 都注冊到 bus 上，共享同一個 rpc instance + 訊息佇列。
+
+### 安全考量
+1. **認證**: 首訊息 token 認證（`{ type: 'auth', token: '...' }`）
+2. **Origin**: 本地使用不需要，遠端需驗證 Origin header
+3. **TLS**: 本地用 `ws://`，遠端用 `wss://` 或 SSH tunnel
+4. **限速**: 已有訊息佇列序列化機制
+
+### 實作要點
+```javascript
+// lib/ws-server.js（概念）
+import { WebSocketServer } from 'ws';
+
+export function startWsServer(config, messageBus) {
+    const wss = new WebSocketServer({ port: config.wsPort || 8765 });
+    wss.on('connection', (ws) => {
+        // 1. 等待 auth 訊息
+        // 2. 認證後注冊為 transport
+        // 3. 接收訊息 → messageBus.enqueue()
+        // 4. 串流回覆 → ws.send({ type: 'streaming', text })
+    });
+}
+```
+
+---
+
+## v2.6 研究：AI 指令系統
+
+### 設計方案比較
+
+| 方案 | 說明 | 適用性 |
+|------|------|--------|
+| **A. JSON Tool Calls** | MCP/Function Calling 風格 | ❌ Cascade API 內部處理，不暴露 |
+| **B. 文字標記** | `@search query`, `@file path` | ✅ 最實用，在文字中嵌入 |
+| **C. System Prompt Convention** | `[ACTION:tool] params [/ACTION]` | ⚠ 可行但冗長 |
+
+**推薦 B 方案**（文字標記），原因：
+- 可在現有 `PLANNER_RESPONSE` 文字中工作
+- 不需改 Cascade API
+- AI 只需 system prompt 說明格式
+- 跟現有的 `MEDIA:` / `REMEMBER:` / `RECALL:` 標記一致
+
+### 標記格式設計
+
+```
+@search 天氣 東京        → 網路搜尋
+@file /path/to/file     → 讀取檔案內容
+@cmd ls -la /tmp        → 執行終端指令
+@web https://example.com → 抓取網頁內容
+```
+
+### 實作方式（參考現有 extractMedia 模式）
+
+```javascript
+// lib/tool-parser.js
+const TOOL_PATTERNS = [
+    { name: 'web_search', regex: /@search\s+(.+?)(?:\n|$)/g },
+    { name: 'read_file',  regex: /@file\s+(.+?)(?:\n|$)/g },
+    { name: 'run_cmd',    regex: /@cmd\s+(.+?)(?:\n|$)/g },
+    { name: 'web_fetch',  regex: /@web\s+(https?:\/\/\S+)/g },
+];
+
+export function extractToolCalls(responseText) {
+    const calls = [];
+    for (const pattern of TOOL_PATTERNS) {
+        // ... match and extract
+    }
+    return { calls, cleanText };
+}
+```
+
+Bridge 處理流程：
+1. 收到 AI response text
+2. `extractToolCalls()` 解析標記
+3. 執行每個 tool call
+4. 結果 append 到回覆 或 feed back 給 AI
+5. 清理後的文字送到 Telegram/WS
+
+### 注意事項
+- Tool 數量保持精簡（5-10 個最多），太多會消耗 context
+- Cascade API 本身已有 tool call（LIST_DIRECTORY, RUN_COMMAND 等），
+  這裡的 AI 指令系統是 **Bridge 層面** 的，用於 Cascade 不支援的操作
+  （如網路搜尋、跨 IDE 操作等）
+
+---
+
+## API 已知限制（更新 2026-03-05）
+
+1. **~100 Step 滑動窗口**: `GetCascadeTrajectory` 最多回傳 ~100 步，超過的舊步被截斷
+2. **20 Tool Calls Per Prompt**: Cascade 每次 prompt 最多 20 次 tool call
+3. **executorMetadatas 延遲**: 只在整個 executor chain 完成後才出現
+4. **images field 會卡住**: 必須用 `media` field（inline base64）
+5. **無公開 API 文件**: 所有知識來自逆向工程
+6. **OpenAI 收購 Codeium**: 2025 年，未來 API 可能變動
+
+---
+
+*最後更新: 2026-03-05 by Claude — v2.5 記憶系統 + bug fix + v2.6 研究*

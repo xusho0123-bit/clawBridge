@@ -1,6 +1,6 @@
 {
   "name": "antigravity-bridge",
-  "version": "2.4.0",
+  "version": "2.6.0",
   "description": "Chat with Antigravity IDE's built-in AI via Telegram / 透過 Telegram 與 Antigravity IDE 內建 AI 對話",
   "type": "module",
   "main": "bridge.js",
