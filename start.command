@@ -11,10 +11,14 @@ echo ""
 # 0. 殺掉舊的 Bridge（避免 Telegram 409 衝突）
 OLD_PIDS=$(ps aux | grep "node bridge.js" | grep -v grep | awk '{print $2}')
 if [ -n "$OLD_PIDS" ]; then
-    echo "Stopping old Bridge process..."
+    echo "⛔ 關閉舊 Bridge..."
     echo "$OLD_PIDS" | xargs kill 2>/dev/null
-    sleep 1
+    sleep 2
 fi
+
+# 0.5 清除舊連線（避免 port 變更導致 timeout）
+echo "🧹 清除舊連線資料..."
+echo '{}' > data/session.json 2>/dev/null
 
 # 讀取 .env 中的 PROJECT_PATH
 PROJECT_PATH=""
