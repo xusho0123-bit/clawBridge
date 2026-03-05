@@ -10,5 +10,6 @@ __pycache__/
 *.pyc
 /tmp/
 *.zip
-RESEARCH.md
-COMPARISON.md
+docs/RESEARCH.md
+docs/RESEARCH.html
+docs/COMPARISON.md

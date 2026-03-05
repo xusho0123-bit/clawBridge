@@ -96,7 +96,7 @@ if [ ! -f ".env" ]; then
     echo ""
     echo "First time setup needed!"
     echo "首次使用，需要設定！"
-    node setup.js
+    node scripts/setup.js
 fi
 
 # 5. 啟動 Bridge

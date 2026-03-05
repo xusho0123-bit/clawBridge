@@ -67,8 +67,8 @@ node bridge.js
 | 腳本 | Mac | Windows | 功能 |
 |------|-----|---------|------|
 | **start** | `start.command` | `start.bat` | 只重啟 Bridge（殺舊 Bridge → 清 session → 重新偵測 port → 啟動） |
-| **restart** | `restart.command` | `restart.bat` | 重啟全部三個服務（關 Bridge → 關 Antigravity → 關 OpenClaw → 清 session → 啟動 OpenClaw → 啟動 Antigravity → 等 Language Server → 啟動 Bridge） |
-| **pc-update** | — | `pc-update.bat` | 全新安裝或 git pull 更新 |
+| **restart** | `restart.command` | `restart.bat` | 重啟全部三個服務（OpenClaw + Antigravity + Bridge） |
+| **pc-update** | — | `scripts/pc-update.bat` | 全新安裝或 git pull 更新 |
 
 - 遇到 timeout 或小問題 → 用 **start**
 - 整個卡死、port 全亂 → 用 **restart**
