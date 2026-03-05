@@ -137,6 +137,38 @@ SYSTEM_PROMPT=（見 .env.example 的範本）
 | `409 Conflict` | 有兩個 Bridge 同時在跑，關掉一個 |
 | `Language Server 找不到` | 確認 Antigravity IDE 有開啟專案（不只是 Launchpad） |
 
+## ⛔ 不可以改的東西（AI 請注意）
+
+你（AI 助手）在協助老闆維護這個專案時，**絕對不可以**做以下事情：
+
+### 1. 不可以改 rpc.js 的模型傳送格式
+```javascript
+// ✅ 正確格式（不要改）
+requestedModel: { model }
+
+// ❌ 錯誤：不要拆成 provider + name
+requestedModel: { provider: "google", name: "gemini-2.5-pro" }
+```
+模型 ID 是 Antigravity IDE 內部的 enum 值，直接傳就好，不需要解析。
+
+### 2. 不可以自己編造模型 ID
+只能用 `data/models.json` 裡列出的 ID，例如：
+- `MODEL_GOOGLE_GEMINI_2_5_PRO` ✅
+- `MODEL_PLACEHOLDER_M18` ✅
+- `moonshot/moonshotai/kimi-k2.5` ❌（不存在）
+- `gemini-2.5-pro` ❌（格式錯誤）
+
+### 3. 不可以改 .env 裡的 AI_MODEL 為不存在的值
+改之前先查 `data/models.json` 確認 ID 存在。
+
+### 4. 不可以改 Connect Protocol 的 API 路徑和格式
+所有 API endpoint 都是固定的（見 rpc.js），不要猜測或「升級」。
+
+### 5. 不可以刪除或重寫核心檔案
+`bridge.js`、`lib/rpc.js`、`lib/detect.js` 是核心，修改前必須確認原因。
+
+**如果遇到 API 錯誤，先查 bridge.log，不要猜測原因然後亂改程式碼。**
+
 ## 架構概念
 
 - **Cascade**: 一次對話（包含多輪來回），每個 cascade 有唯一 ID
@@ -148,5 +180,5 @@ SYSTEM_PROMPT=（見 .env.example 的範本）
 ## GitHub Repo
 
 - **URL**: https://github.com/xusho0123-bit/clawBridge
-- **私人 repo**，需要老闆的 GitHub 帳號才能 clone
+- **公開 repo**，任何電腦直接 clone 不用登入
 - Mac 端修改 → commit → push，PC 端 git pull 即可同步
