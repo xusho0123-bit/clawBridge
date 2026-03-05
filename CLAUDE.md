@@ -136,11 +136,31 @@ SYSTEM_PROMPT=（見 .env.example 的範本）
 
 | 問題 | 解法 |
 |------|------|
-| `Error: AI response timeout` | Google 伺服器塞車，等一下再試或換模型 |
+| `Error: AI response timeout` | Google 伺服器塞車，等一下再試或用 `/model` 換模型 |
 | `trajectory not found` | cascade 已過期，傳新訊息會自動建新的 |
 | `CSRF token not found` | Antigravity IDE 沒開，或沒開專案資料夾 |
 | `409 Conflict` | 有兩個 Bridge 同時在跑，關掉一個 |
 | `Language Server 找不到` | 確認 Antigravity IDE 有開啟專案（不只是 Launchpad） |
+| AI 每次回覆都重複之前的內容 | 見下方「AI 回覆重複問題」 |
+
+### AI 回覆重複問題
+
+**症狀**: AI 每次回覆都把之前的對話內容重新說一遍，越來越長。
+
+**原因**: cascade（對話歷史）累積太多，AI 看到完整歷史就自動回顧。
+
+**解法（依序嘗試）**:
+
+1. **更新 `.env` 的 SYSTEM_PROMPT**（最重要）— 確認有這兩條規則：
+   ```
+   4. 絕對不要重複之前的對話內容。不要回顧、不要列出之前做了什麼。只回答當前的問題
+   5. 每次回覆控制在 500 字以內，除非使用者要求詳細說明
+   ```
+   完整 SYSTEM_PROMPT 請從 `.env.example` 複製。
+
+2. **開新對話** — 在 TG 傳 `/newchat`，或重啟 Bridge（`start.bat`）清除舊 cascade
+
+3. **換模型** — Gemini Flash 最容易重複，用 `/model` 切到 Claude Sonnet 會好很多
 
 ## ⛔ 不可以改的東西（AI 請注意）
 
