@@ -1,0 +1,57 @@
+{
+  "_comment": "Antigravity IDE 模型對照表 — 從 Language Server binary 逆向取得",
+  "_updated": "2026-03-05",
+  "_usage": "Bridge /model 指令用此清單，.env AI_MODEL 也用這些 ID",
+  "models": [
+    {
+      "ideDisplayName": "Gemini 3.1 Pro (High Quality)",
+      "modelId": "MODEL_GOOGLE_GEMINI_2_5_PRO",
+      "provider": "Google",
+      "tier": "high",
+      "note": "目前 Bridge 預設模型"
+    },
+    {
+      "ideDisplayName": "Gemini 3.1 Pro (Low Quality)",
+      "modelId": "MODEL_GOOGLE_GEMINI_2_5_PRO_LOW",
+      "provider": "Google",
+      "tier": "low",
+      "note": "IDE 有但 Bridge /model 未列出（省額度用）"
+    },
+    {
+      "ideDisplayName": "Gemini 3 Flash",
+      "modelId": "MODEL_PLACEHOLDER_M18",
+      "provider": "Google",
+      "tier": "fast",
+      "note": "速度快但品質低，舊預設值"
+    },
+    {
+      "ideDisplayName": "Claude Sonnet 4.6 (Thinking)",
+      "modelId": "MODEL_CLAUDE_4_SONNET_THINKING",
+      "provider": "Anthropic",
+      "tier": "high",
+      "note": ""
+    },
+    {
+      "ideDisplayName": "Claude Opus 4.6 (Thinking)",
+      "modelId": "MODEL_CLAUDE_4_OPUS_THINKING",
+      "provider": "Anthropic",
+      "tier": "premium",
+      "note": "最強但最慢最貴"
+    },
+    {
+      "ideDisplayName": "GPT-OSS 120B (Medium)",
+      "modelId": "MODEL_OPENAI_GPT_OSS_120B_MEDIUM",
+      "provider": "OpenAI",
+      "tier": "medium",
+      "note": ""
+    }
+  ],
+  "idToDisplay": {
+    "MODEL_GOOGLE_GEMINI_2_5_PRO": "Gemini 3.1 Pro",
+    "MODEL_GOOGLE_GEMINI_2_5_PRO_LOW": "Gemini 3.1 Pro (Low)",
+    "MODEL_PLACEHOLDER_M18": "Gemini 3 Flash",
+    "MODEL_CLAUDE_4_SONNET_THINKING": "Claude Sonnet 4.6",
+    "MODEL_CLAUDE_4_OPUS_THINKING": "Claude Opus 4.6",
+    "MODEL_OPENAI_GPT_OSS_120B_MEDIUM": "GPT-OSS 120B"
+  }
+}

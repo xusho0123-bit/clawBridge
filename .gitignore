@@ -5,6 +5,7 @@ node_modules/
 bridge.log
 downloads/
 data/
+!data/models.json
 __pycache__/
 *.pyc
 /tmp/
