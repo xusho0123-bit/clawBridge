@@ -55,8 +55,8 @@ Bridge 自動偵測 Language Server 的 CSRF token 和 port。
 
 ### 1. 下載專案 Clone
 ```bash
-git clone <repo-url>
-cd antigravity-bridge
+git clone https://github.com/xusho0123-bit/clawBridge.git
+cd clawBridge
 ```
 
 ### 2. 安裝依賴 Install
