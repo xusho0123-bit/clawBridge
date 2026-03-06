@@ -28,7 +28,7 @@ const config = {
         ? process.env.ALLOWED_USER_ID.split(',').map(s => s.trim())
         : null,
     model: process.env.AI_MODEL || 'MODEL_PLACEHOLDER_M18',
-    pollTimeout: parseInt(process.env.POLL_TIMEOUT_MS || '120000', 10),
+    pollTimeout: parseInt(process.env.POLL_TIMEOUT_MS || '300000', 10),
 };
 
 // Detect Language Server
