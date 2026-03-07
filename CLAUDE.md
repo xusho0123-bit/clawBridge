@@ -194,6 +194,92 @@ requestedModel: { provider: "google", name: "gemini-2.5-pro" }
 
 **如果遇到 API 錯誤，先查 bridge.log，不要猜測原因然後亂改程式碼。**
 
+## 開發規則（從 Bug 中學到的教訓）
+
+> 這些規則是踩坑後的血淚經驗，開發和 code review 時必須遵守。
+
+### 規則 1：Fallback 路徑必須有同等核心功能
+
+**背景**: Streaming fallback 到 polling 時，`onPermission` callback 沒有傳入 polling，導致權限攔截完全失效。
+
+**規則**:
+- 當系統有 A 路徑（主要）和 B 路徑（fallback）時，**B 必須覆蓋 A 的所有 critical features**
+- Fallback 不是「能動就好」，是「核心功能都要在」
+- 新增 fallback 路徑時，列出所有 critical features，逐一確認都有處理
+- 特別注意：callback / handler 傳入主路徑後，fallback 路徑有沒有也接收
+
+```
+✅ streaming: onUpdate ✓  onPermission ✓
+❌ polling:   onUpdate ✓  onPermission ✗  ← 漏了！
+```
+
+### 規則 2：降級 Flag 必須有恢復機制
+
+**背景**: `useStreaming = false` 一設就永久，一次網路閃斷就永遠喪失 streaming 能力。
+
+**規則**:
+- 任何把系統切到降級模式的 flag，都**必須有明確的恢復路徑**
+- 不可以有「一次失敗就永久殘廢」的設計
+- 每個降級 flag 要搭配：
+  - **作用範圍限制**（per-cascade、per-session，不是全域永久）
+  - **重試機制**（定時重試或事件觸發重試）
+  - **恢復條件**（明確定義何時回到正常模式）
+
+```javascript
+// ❌ 永久降級
+useStreaming = false; // 永遠不會回來
+
+// ✅ 有恢復機制
+useStreaming = false;
+streamRetryCount++;
+if (streamRetryCount < MAX_RETRIES) useStreaming = true; // 下次重試
+// 或：resetCascade() 時自動恢復
+```
+
+### 規則 3：Timeout 必須區分「等機器」和「等人」
+
+**背景**: 120 秒 timeout 對 AI 運算合理，但用戶從看到 Telegram 通知到按下 Allow 可能需要更長時間。
+
+**規則**:
+- Timeout 要區分兩種模式：
+  - **等 AI 回應**: 正常 timeout（如 120s）
+  - **等人類操作**: 大幅延長或暫停 timeout
+- 當偵測到系統在等人類回應（如權限按鈕已發出），應暫停計時或切換到更長的 timeout
+- 不可以用機器的速度來要求人的速度
+
+### 規則 4：Critical Callback 要確認有被觸發
+
+**背景**: `onPermission` 被傳入 `sendToAI()`，但 polling 路徑完全忽略它，無聲無息。
+
+**規則**:
+- 傳入 callback ≠ callback 會被調用
+- Critical callback 要有「未觸發」的告警或 fallback 機制
+- 新增程式路徑時，檢查所有接收到的 callback 是否都有被處理
+- 特別注意 try-catch 裡的替代路徑
+
+### 規則 5：Replay / 歷史重播要記錄被跳過的 Critical 事件
+
+**背景**: Stream replay 時跳過的 WAITING permission，之後不會再觸發，導致權限被永久漏掉。
+
+**規則**:
+- Replay 階段跳過的事件，如果是 critical 的（如權限請求），要**記錄下來**
+- Replay 結束後（切換到 live 模式時），重新檢查被跳過的 critical 事件是否仍然 pending
+- 不可以假設「跳過的事件之後會重新觸發」— 如果狀態沒變，diff-based stream 不會重送
+
+### 規則 6：測試必須覆蓋 Degraded Mode
+
+**規則**:
+- 不只測正常路徑，也要測降級 / fallback 路徑
+- 測試矩陣應包含所有路徑組合：
+
+```
+✅ Streaming + 文字回覆
+✅ Streaming + 權限請求
+❌ Polling + 權限請求  ← 從未測試 → Bug 潛伏
+```
+
+---
+
 ## 架構概念
 
 - **Cascade**: 一次對話（包含多輪來回），每個 cascade 有唯一 ID
