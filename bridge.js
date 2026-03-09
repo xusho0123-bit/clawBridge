@@ -21,6 +21,10 @@ if (!TG_TOKEN) {
     console.error('Run: npm run setup');
     process.exit(1);
 }
+if (!/^\d+:[A-Za-z0-9_-]{30,}$/.test(TG_TOKEN)) {
+    console.error('TELEGRAM_BOT_TOKEN format invalid. Expected: 123456:ABC-DEF...');
+    process.exit(1);
+}
 
 const config = {
     tgToken: TG_TOKEN,
