@@ -11,7 +11,7 @@
 import 'dotenv/config';
 import { detectConnection } from './lib/detect.js';
 import { createRpcClient } from './lib/rpc.js';
-import { startTelegramBot } from './lib/telegram.js';
+import { startTelegramBot } from './lib/telegram/index.js';
 import { loadSession, clearSession } from './lib/history.js';
 
 // Validate config
