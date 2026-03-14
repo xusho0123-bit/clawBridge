@@ -288,6 +288,32 @@ if (streamRetryCount < MAX_RETRIES) useStreaming = true; // 下次重試
 - **Streaming**: 即時串流 AI 回覆，TG 端可以看到打字中效果
 - **Memory System**: 三層記憶（Pins 常駐 / Notes 關鍵字匹配 / Recall 歷史搜尋）
 
+## 目前已知問題（2026-03-14）
+
+### 已修復
+| # | 問題 | 根因 | 修復 |
+|---|------|------|------|
+| 1 | TG 反覆「AI 回應超時」 | Antigravity 3/8 更新後 `reactive state` 被禁用，stream 靜默失敗 → 5 分鐘 timeout → cascade 過期 | `streamFetch` 解析 end-of-stream error，立即 fallback polling |
+| 2 | Unhandled rejection crash | stream 比 sendMessage 先 reject | 加 `.catch(() => {})` 抑制 |
+
+### 現存限制
+| # | 問題 | 影響 | 備註 |
+|---|------|------|------|
+| 1 | ~~Streaming 被禁用~~ | ~~回應延遲 ~3 秒~~ | **已用 `StreamAgentStateUpdates` 取代，即時串流恢復** |
+| 2 | `StreamCascadeReactiveUpdates` 仍被禁用 | N/A | 改用 `StreamAgentStateUpdates`，功能更強（含 thinking + status） |
+| 3 | IDE Extension Host IPC 無法攔截 | 不再需要 | 已有可用的串流 API |
+
+### 3/9 Telegram 模組拆分
+- v3.0 將 `telegram.js`（1365 行）拆為 8 個模組 — **經比對確認不是問題根因**
+- 3/9 跟緋的對話算順利，問題出在 3/8 的 Antigravity 更新
+
+## 下一步目標
+
+1. **觀察 `StreamAgentStateUpdates` 穩定性**：新串流 API 已實裝，需觀察長期穩定性
+2. **權限請求 (WAITING) 測試**：確認新串流中的權限偵測正常運作
+3. **thinking 展示**：可考慮在 TG 顯示 AI 的思考過程（目前已串流但未顯示）
+4. **錯誤恢復改善**：timeout 後自動重試一次，而非直接報錯
+
 ## GitHub Repo
 
 - **URL**: https://github.com/xusho0123-bit/clawBridge
