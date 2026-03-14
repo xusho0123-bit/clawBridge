@@ -1,5 +1,66 @@
 # Antigravity Bridge - 更新紀錄
 
+## v3.2.0 (2026-03-14)
+
+### 重大突破
+- **🚀 StreamAgentStateUpdates** — 發現全新 LS API，取代被禁用的 `StreamCascadeReactiveUpdates`
+  - 逆向 LS binary 找到的替代方案，不受 reactive state 限制
+  - 輸入使用 `conversationId`（非 `cascadeId`）
+  - 回應包含：thinking、modifiedResponse、status、token usage
+  - 完成判斷：`CASCADE_RUN_STATUS_IDLE` + `CORTEX_STEP_STATUS_DONE`
+  - 回應時間 < 0.5 秒（polling 約 3 秒）
+
+### v3.1 → v3.2 對比
+
+| 項目 | v3.1 (Polling) | v3.2 (AgentStream) |
+|------|---------------|-------------------|
+| 主要 API | GetCascadeTrajectory (polling) | StreamAgentStateUpdates (streaming) |
+| 回應延遲 | ~3 秒（polling 間隔） | < 0.5 秒（即時推送） |
+| 權限偵測 | Polling snapshot 中找 WAITING | Stream frame 直接帶 WAITING status |
+| 思考過程 | ❌ 不可見 | ✅ thinking 欄位即時顯示 |
+| Token 用量 | ❌ 不可見 | ✅ tokenUsage 欄位 |
+| 完成判斷 | executorCount 變化 + 文字比對 | status IDLE + step DONE |
+| 連線方式 | 定時 HTTP 請求 | 長連線串流 |
+
+---
+
+## v3.1.0 (2026-03-08)
+
+### 修復
+- **串流恢復嘗試** — `StreamCascadeReactiveUpdates` 被 LS 禁用（reactive state is disabled）
+  - 確認 HTTP/2 也無法繞過，是 LS 層級限制
+  - 暫時全面使用 polling fallback
+
+---
+
+## v3.0.0 (2026-03-07)
+
+### 穩定性改善
+- **🛡 串流超時保護** — 30 秒無資料自動斷流，保留已收到文字
+- **⛔ 即時取消** — `/cancel` 秒斷串流和輪詢（AbortController）
+- **🔄 快速重連** — 斷線後 5 秒重試（前 2 分鐘），之後 30 秒
+- **📝 部分文字保留** — 超時不再丟棄，加 `⚠ *回應可能不完整*` 提示
+
+### Bug 修復（5 項全修）
+- **🔴 P0: Polling fallback 權限處理** — `pollResponse()` 加入 WAITING 偵測 + `onPermission`
+- **🔴 P0: `useStreaming` 永久 false** — `resetCascade()` 重置 `useStreaming = true`
+- **🟡 P1: Timeout 不考慮權限等待** — `permissionPending` flag + 10 分鐘延長
+- **🟡 P1: Replay 漏權限** — `replayedPermission` 記錄 + messageIsSent 後重觸發
+- **🟡 P1: 重複回應** — `replayBaseline` 過濾遲到的 replay frame
+
+### 模組化重構
+- `telegram.js`（1365 行）拆分為 8 個模組（`lib/telegram/`）
+  - `index.js` — 入口 + message handler + scheduler
+  - `ctx.js` — 共享 context
+  - `settings.js` — IDE 設定讀寫
+  - `media.js` — MIME/下載/STT
+  - `queue.js` — 訊息佇列 + AI 互動
+  - `commands.js` — 所有 /指令
+  - `callbacks.js` — Inline button callback
+  - `watchdog.js` — 健康檢查 + 自適應重連
+
+---
+
 ## v2.6.0 (2026-03-05)
 
 ### 重大改進

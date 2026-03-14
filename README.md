@@ -1,4 +1,4 @@
-# Antigravity Bridge v2.6
+# Antigravity Bridge v3.2
 
 透過 Telegram 遠端操控 Antigravity IDE 內建 AI。
 Remotely control Antigravity IDE's built-in AI via Telegram.
@@ -190,6 +190,9 @@ pip install edge-tts
 | `/status` | 連線狀態 + 記憶統計 |
 | `/newchat` | 新對話 New conversation |
 | `/reconnect` | 重新偵測 LS Re-detect |
+| `/model` | 切換 AI 模型 Switch model |
+| `/cancel` | 即時取消 AI Cancel AI (v3.0) |
+| `/cascades` | 列出/刪除舊對話 Manage cascades |
 
 ### 記憶系統 Memory System
 
@@ -227,7 +230,7 @@ pip install edge-tts
 
 ## 記憶系統 / Memory System
 
-v2.5 新增三層記憶系統，讓 AI 有長期記憶：
+三層記憶系統，讓 AI 有長期記憶：
 
 ### Layer 1: 📌 釘選 (Pins)
 - **用途**: 常駐背景知識（你住哪、偏好、規則等）
@@ -264,6 +267,7 @@ AI 回覆中可以使用特殊標記：
 | `AI_MODEL` | — | 預設 MODEL_PLACEHOLDER_M18 |
 | `POLL_TIMEOUT_MS` | — | 回應超時 (預設 120000ms) |
 | `WHISPER_MODEL` | — | STT 模型 (預設 turbo) |
+| `WHISPER_LANGUAGE` | — | Whisper 語言代碼（如 `zh`），不設自動偵測 |
 | `SYSTEM_PROMPT` | — | AI 系統提示詞（含記憶功能說明） |
 
 ---
@@ -289,11 +293,19 @@ AI 回覆中可以使用特殊標記：
 
 ```
 antigravity-bridge/
-├── bridge.js              # 主程式 Main entry
+├── bridge.js              # 主程式 Main entry (75 行)
 ├── lib/
+│   ├── rpc.js             # Connect Protocol RPC client (922 行) ⭐
+│   ├── telegram/          # Telegram Bot — 8 模組 (1390 行) ⭐
+│   │   ├── index.js       # 入口 + message handler + scheduler
+│   │   ├── ctx.js         # 共享 context 物件
+│   │   ├── settings.js    # IDE 設定讀寫
+│   │   ├── media.js       # MIME/下載/STT
+│   │   ├── queue.js       # 訊息佇列 + AI 互動
+│   │   ├── commands.js    # 所有 /指令
+│   │   ├── callbacks.js   # Inline button callback
+│   │   └── watchdog.js    # 健康檢查 + 自適應重連
 │   ├── detect.js          # 自動偵測 CSRF + port (Mac/Win)
-│   ├── rpc.js             # Connect API RPC client
-│   ├── telegram.js        # Telegram Bot handler
 │   ├── memory.js          # 三層記憶系統
 │   ├── history.js         # 對話持久化
 │   └── scheduler.js       # 排程功能
@@ -303,17 +315,39 @@ antigravity-bridge/
 │   ├── pins.json          # 釘選
 │   └── notes.json         # 筆記
 ├── tools/                 # 工具腳本 Utility scripts
+├── docs/                  # 研究記錄 Research notes
 ├── setup.js               # 設定精靈 Setup wizard
 ├── start.command           # macOS one-click
 ├── start.bat              # Windows one-click (Node.js 自動偵測)
-├── deploy.command          # macOS deploy script
-├── deploy.bat             # Windows deploy script
 ├── package.json           # 2 個依賴：dotenv + node-telegram-bot-api
 ├── .env.example           # 設定範本 Config template
-├── CHANGELOG.md           # 更新紀錄
-├── RESEARCH.md            # API 研究記錄
+├── SPEC.md                # 專案規格書
 └── README.md
 ```
+
+**總行數 / Total**: ~2,956 行
+
+---
+
+## v3.2 更新 / What's New
+
+### StreamAgentStateUpdates 串流突破
+- 🚀 **全新串流 API** — 逆向 LS binary 發現 `StreamAgentStateUpdates`，取代被禁用的 `StreamCascadeReactiveUpdates`
+- ⚡ **回應延遲 < 0.5 秒**（polling 約 3 秒）
+- 🧠 **thinking 即時顯示** — AI 思考過程可見
+- 📊 **Token 用量追蹤** — 串流內直接取得
+
+### v3.0 穩定性改善 Stability (v3.0)
+- 🛡 **串流超時保護**: 30 秒無資料自動斷流，保留已收到的文字
+- ⛔ **即時取消**: `/cancel` 秒斷串流和輪詢（AbortController）
+- 🔄 **快速重連**: 斷線後 5 秒重試（前 2 分鐘），之後 30 秒
+- 📝 **部分文字保留**: 超時不再丟棄，加 `⚠ *回應可能不完整*` 提示
+- 🔧 **5 項 Bug 全修** — 權限攔截、streaming 恢復、timeout、replay、重複回應
+
+### 模組化重構 Modular Refactor
+- 原本 1365 行的 `telegram.js` 拆分為 8 個模組
+- 共享 context 物件模式，更易維護和擴展
+- 每個模組職責單一、可獨立測試
 
 ---
 
@@ -329,7 +363,11 @@ antigravity-bridge/
 | ffmpeg 找不到 | `brew install ffmpeg` (macOS) / `apt install ffmpeg` |
 | numpy 版本衝突 | `pip install "numpy<1.26"` |
 | AI 沒回應 | `/reconnect` 重連；確認沒有其他 Bridge 在跑 |
+| AI 回覆到一半卡住 | v3.0 已修復：30 秒自動斷流 + 保留部分文字 |
+| /cancel 沒反應 | v3.0 已修復：AbortController 即時取消 |
 | 回應太慢超時 | 增加 .env 中 `POLL_TIMEOUT_MS`（預設 120 秒）|
+| 串流不是即時的 | v3.2 使用 StreamAgentStateUpdates，回應 < 0.5 秒 |
+| 權限按鈕沒出現 | 確認 `/safe` 模式；v3.2 串流內直接偵測 WAITING |
 | 其他 Bridge 衝突 | `pkill -f 'node bridge'` 然後重啟 |
 
 ---
